@@ -1,0 +1,164 @@
+#ifndef MYTRANSMISSION_H
+#define MYTRANSMISSION_H
+
+#include "serial_handle.h"
+#include <QObject>
+#include <QTimer>
+#include <QtSerialPort/QSerialPort>
+#include <QtSerialPort/QSerialPortInfo>
+#include <QSerialPortInfo>
+
+
+#pragma pack(1)//强制结构体1字节对齐
+
+typedef struct
+{
+    uint8_t Wheel_diameter;
+    uint8_t Transmission_gear_ratio;
+    uint8_t Motor_reduction_ratio;
+    uint16_t motor_encoder_resolution;
+    uint16_t pulley_encoder_resolution;
+}motor_Params_t;
+
+typedef struct
+{
+    uint8_t Travelling_Direction;
+    uint16_t speed;
+    uint16_t distance;
+    uint16_t accel_value;
+}movement_params_t;
+
+
+typedef struct {
+     uint16_t sof;
+     uint8_t length;
+     uint8_t  ack_type;
+     uint8_t power_voltage;
+     int8_t power_current;
+     int8_t motor_drive_current;
+     uint8_t power_voltage_threshold;
+     int8_t power_current_threshold;
+     int8_t motor_current_threshold;
+     uint8_t power_vltage_state;
+     uint8_t motor_running_state;
+     uint8_t control_usart_state;
+     uint8_t running_light_state;
+     uint8_t deive_state;
+     int16_t pulley_speed;
+     int32_t encodera_accVal;
+     int32_t movement_distance;
+     uint8_t Wheel_diameter;
+     uint8_t Transmission_gear_ratio;
+     uint8_t Motor_reduction_ratio;
+     uint16_t motor_encoder_resolution;
+     uint16_t pulley_encoder_resolution;
+     uint8_t Privilege_identifier;
+     uint8_t Travelling_Direction;
+     uint16_t crc16;
+}monitoringDat1_t;
+
+
+
+
+
+#define CONTROL_PANNEL 1
+#define HOST_COMPUTER  0
+//CRC16 initial: 0x2B3B poly: 0x2333////////////////////////////////////////////////////
+static const unsigned short CRC16_Table[256] =
+{
+    0x0000, 0x0E53, 0x1CA6, 0x12F5, 0x394C, 0x371F, 0x25EA, 0x2BB9,
+    0x34FF, 0x3AAC, 0x2859, 0x260A, 0x0DB3, 0x03E0, 0x1115, 0x1F46,
+    0x2F99, 0x21CA, 0x333F, 0x3D6C, 0x16D5, 0x1886, 0x0A73, 0x0420,
+    0x1B66, 0x1535, 0x07C0, 0x0993, 0x222A, 0x2C79, 0x3E8C, 0x30DF,
+    0x1955, 0x1706, 0x05F3, 0x0BA0, 0x2019, 0x2E4A, 0x3CBF, 0x32EC,
+    0x2DAA, 0x23F9, 0x310C, 0x3F5F, 0x14E6, 0x1AB5, 0x0840, 0x0613,
+    0x36CC, 0x389F, 0x2A6A, 0x2439, 0x0F80, 0x01D3, 0x1326, 0x1D75,
+    0x0233, 0x0C60, 0x1E95, 0x10C6, 0x3B7F, 0x352C, 0x27D9, 0x298A,
+    0x32AA, 0x3CF9, 0x2E0C, 0x205F, 0x0BE6, 0x05B5, 0x1740, 0x1913,
+    0x0655, 0x0806, 0x1AF3, 0x14A0, 0x3F19, 0x314A, 0x23BF, 0x2DEC,
+    0x1D33, 0x1360, 0x0195, 0x0FC6, 0x247F, 0x2A2C, 0x38D9, 0x368A,
+    0x29CC, 0x279F, 0x356A, 0x3B39, 0x1080, 0x1ED3, 0x0C26, 0x0275,
+    0x2BFF, 0x25AC, 0x3759, 0x390A, 0x12B3, 0x1CE0, 0x0E15, 0x0046,
+    0x1F00, 0x1153, 0x03A6, 0x0DF5, 0x264C, 0x281F, 0x3AEA, 0x34B9,
+    0x0466, 0x0A35, 0x18C0, 0x1693, 0x3D2A, 0x3379, 0x218C, 0x2FDF,
+    0x3099, 0x3ECA, 0x2C3F, 0x226C, 0x09D5, 0x0786, 0x1573, 0x1B20,
+    0x2333, 0x2D60, 0x3F95, 0x31C6, 0x1A7F, 0x142C, 0x06D9, 0x088A,
+    0x17CC, 0x199F, 0x0B6A, 0x0539, 0x2E80, 0x20D3, 0x3226, 0x3C75,
+    0x0CAA, 0x02F9, 0x100C, 0x1E5F, 0x35E6, 0x3BB5, 0x2940, 0x2713,
+    0x3855, 0x3606, 0x24F3, 0x2AA0, 0x0119, 0x0F4A, 0x1DBF, 0x13EC,
+    0x3A66, 0x3435, 0x26C0, 0x2893, 0x032A, 0x0D79, 0x1F8C, 0x11DF,
+    0x0E99, 0x00CA, 0x123F, 0x1C6C, 0x37D5, 0x3986, 0x2B73, 0x2520,
+    0x15FF, 0x1BAC, 0x0959, 0x070A, 0x2CB3, 0x22E0, 0x3015, 0x3E46,
+    0x2100, 0x2F53, 0x3DA6, 0x33F5, 0x184C, 0x161F, 0x04EA, 0x0AB9,
+    0x1199, 0x1FCA, 0x0D3F, 0x036C, 0x28D5, 0x2686, 0x3473, 0x3A20,
+    0x2566, 0x2B35, 0x39C0, 0x3793, 0x1C2A, 0x1279, 0x008C, 0x0EDF,
+    0x3E00, 0x3053, 0x22A6, 0x2CF5, 0x074C, 0x091F, 0x1BEA, 0x15B9,
+    0x0AFF, 0x04AC, 0x1659, 0x180A, 0x33B3, 0x3DE0, 0x2F15, 0x2146,
+    0x08CC, 0x069F, 0x146A, 0x1A39, 0x3180, 0x3FD3, 0x2D26, 0x2375,
+    0x3C33, 0x3260, 0x2095, 0x2EC6, 0x057F, 0x0B2C, 0x19D9, 0x178A,
+    0x2755, 0x2906, 0x3BF3, 0x35A0, 0x1E19, 0x104A, 0x02BF, 0x0CEC,
+    0x13AA, 0x1DF9, 0x0F0C, 0x015F, 0x2AE6, 0x24B5, 0x3640, 0x3813
+};
+
+
+typedef struct AckPack{
+    uint16_t sof;
+    uint8_t length;
+    uint8_t  ack_type;
+    uint16_t crc16;
+}Ack_t;
+
+typedef union {
+  Ack_t ack;
+   char buf[6];
+}ack_u;
+
+
+
+class myTransmission :public QObject
+{
+    Q_OBJECT
+public:
+    myTransmission();
+
+
+    unsigned short crc16_calc(unsigned char *buf, int length);
+    void Send_Moter_Data(motor_Params_t motor_params);
+    void Send_Movemoment_Data(movement_params_t movement_params);
+    void Send_Movement_Enable(uint8_t crtl_value);
+    void Send_Data_Frame_Enable(uint8_t ctrl_value);
+    void Send_Privilege_Enable(uint8_t crtl_value);
+
+    void Show_Feedback(uint8_t ack,uint8_t *buff,uint8_t len);
+
+    void Open_Serial(QString Com, int Baud,uint8_t databits,uint8_t Parity,uint8_t stopbits);
+    void Close_Serial();
+    uint8_t crtl_terminal;
+    uint8_t serial_stata = 0;
+
+private:
+
+
+    uint8_t ack_type;
+    monitoringDat1_t monitoringdata;
+
+     Serial_Handle *serial;
+     QThread SerialThread;
+     QTimer *Timer_ReadData;
+     QTimer *Timer_SendMsg;
+
+signals:
+     void UI_Display_ACK(int ack);
+     void UI_Display_Feedback(monitoringDat1_t data);
+
+public  slots:
+    void Init();
+    void Send_Heartbeart();
+
+private slots:
+
+    void Read_Serial();
+    unsigned char convertCharToHex(unsigned char ch);
+};
+
+#endif // MYTRANSMISSION_H
